@@ -1,0 +1,44 @@
+
+[functions.text-to-speech]
+enabled = true
+verify_jwt = false
+import_map = "./functions/text-to-speech/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/text-to-speech/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/text-to-speech/*.html" ]
+
+[functions.nvidia-chat]
+enabled = true
+verify_jwt = false
+import_map = "./functions/nvidia-chat/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/nvidia-chat/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/nvidia-chat/*.html" ]
+
+[functions.edge-tts]
+enabled = true
+verify_jwt = false
+import_map = "./functions/edge-tts/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/edge-tts/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/edge-tts/*.html" ]
+
+[functions.gemini-tts]
+enabled = true
+verify_jwt = false
+import_map = "./functions/gemini-tts/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/gemini-tts/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/gemini-tts/*.html" ]

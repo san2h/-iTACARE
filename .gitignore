@@ -1,0 +1,29 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+android/.gradle/
+android/app/build/
+android/build/
+ios/App/Pods/
+ios/App/build/
+*.log
+
+# Lixo gerado por comando errado
+Auto-updated
+Auto-updating
+Downloading
+New
+Pouring
+itacare-plus@1.0.0
+vite
+vite.config copy.js
+src/pages/ForgotPassword
+src/pages/ResetPassword
+
+# Editor
+.idea/
+.vscode/
+android/.idea/
+ios/App/App.xcodeproj/project.xcworkspace/
