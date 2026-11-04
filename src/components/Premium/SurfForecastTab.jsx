@@ -98,8 +98,8 @@ export default function SurfForecastTab() {
   });
 
   const [reports, setReports] = useState([
-    { id: 1, type: 'photo', url: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=300&auto=format&fit=crop', author: 'Caio S.', time: 'Ha 15 min' },
-    { id: 2, type: 'video', url: 'https://images.unsplash.com/photo-1512413916281-bb05763b65cb?q=80&w=300&auto=format&fit=crop', author: 'Marina L.', time: 'Ha 42 min' }
+    { id: 1, type: 'photo', url: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=300&auto=format&fit=crop', author: 'Caio S.', time: 'Há 15 min' },
+    { id: 2, type: 'video', url: 'https://images.unsplash.com/photo-1512413916281-bb05763b65cb?q=80&w=300&auto=format&fit=crop', author: 'Marina L.', time: 'Há 42 min' }
   ]);
 
   const currentCoords = SPOT_COORDINATES[activeSpot];
@@ -224,7 +224,7 @@ export default function SurfForecastTab() {
     setReportState('validating');
     setTimeout(() => {
       setReportState('success');
-      setReports(prev => [{ id: Date.now(), type, url: tempUrl, author: 'Voce', time: 'Agora mesmo' }, ...prev]);
+      setReports(prev => [{ id: Date.now(), type, url: tempUrl, author: 'Você', time: 'Agora mesmo' }, ...prev]);
       setTimeout(() => setReportState('idle'), 3000);
     }, 2500);
   };
@@ -325,7 +325,7 @@ export default function SurfForecastTab() {
             <Waves className="w-4 h-4 text-blue-500" /> Surf Report
           </h3>
           <span className="bg-blue-50 text-blue-600 border border-blue-100 text-[9px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1 shadow-sm">
-            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Previsao 7 Dias
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span> Previsão 7 Dias
           </span>
         </div>
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
@@ -415,16 +415,16 @@ export default function SurfForecastTab() {
           <MapPin className="w-3 h-3 text-sky-400" /> {activeSpot}
         </div>
         <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm px-2.5 py-2 rounded-lg text-[8px] text-white font-bold flex flex-col gap-1 border border-white/10 text-left">
-          <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#0ea5e9]"></div> Ondulacao</div>
+          <div className="flex items-center gap-1.5"><div className="w-3 h-0.5 bg-[#0ea5e9]"></div> Ondulação</div>
           <div className="flex items-center gap-1.5"><div className="w-3 h-0.5" style={{ backgroundColor: windColor }}></div> Vento ({Math.round(forecast.windKmh)} km/h)</div>
         </div>
         <div className="absolute bottom-3 left-3 bg-white/90 backdrop-blur px-2.5 py-1.5 rounded-lg text-[10px] text-gray-800 font-black flex items-center gap-1.5 shadow-md">
-          <Compass className="w-3.5 h-3.5 text-sky-500" /> Swell: {forecast.swellDirCard} ({forecast.swellDirDeg} graus)
+          <Compass className="w-3.5 h-3.5 text-sky-500" /> Swell: {forecast.swellDirCard} ({forecast.swellDirDeg}°)
         </div>
 
-        {selectedDayOffset === 0 && chartData?.nowLevel !== null && (
+        {selectedDayOffset === 0 && chartData && chartData.nowLevel !== null && (
           <div className="absolute top-1/2 -translate-y-1/2 right-3 bg-black/60 backdrop-blur-sm px-1.5 py-2 rounded-xl border border-white/10 flex flex-col items-center gap-1.5 shadow-lg pointer-events-none">
-            <span className="text-[7px] font-black text-sky-400 uppercase tracking-widest leading-none mb-0.5 mt-0.5">MARE</span>
+            <span className="text-[7px] font-black text-sky-400 uppercase tracking-widest leading-none mb-0.5 mt-0.5">MARÉ</span>
             <div className="flex flex-col-reverse items-center" style={{ gap: '1px' }}>
               {Array.from({ length: 40 }).map((_, i) => {
                 const minT = chartData.todayMarkers.length > 0 ? Math.min(...chartData.todayMarkers.map(m => m.levelNum)) : 0.0;
@@ -461,7 +461,7 @@ export default function SurfForecastTab() {
               <Waves className="w-4 h-4 text-blue-500" />
             </div>
             <div>
-              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Swell Primario</p>
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Swell Primário</p>
               <p className="text-xs font-black text-gray-800">
                 {forecast.waveRangeStr} <span className="text-gray-400">({forecast.waveHeightFeet}ft)</span> @ {forecast.swellPeriod}s <span className="text-blue-500">{forecast.swellDirCard}</span>
               </p>
@@ -484,13 +484,13 @@ export default function SurfForecastTab() {
           <div className="pr-3 flex items-center justify-between text-center">
             <div>
               <Droplets className="w-3.5 h-3.5 text-blue-500 mx-auto mb-0.5" />
-              <p className="text-[9px] font-bold text-gray-400 uppercase">Agua</p>
-              <p className="text-xs font-black text-gray-800">{forecast.waterTemp}C</p>
+              <p className="text-[9px] font-bold text-gray-400 uppercase">Água</p>
+              <p className="text-xs font-black text-gray-800">{forecast.waterTemp}°C</p>
             </div>
             <div>
               <ThermometerSun className="w-3.5 h-3.5 text-amber-500 mx-auto mb-0.5" />
               <p className="text-[9px] font-bold text-gray-400 uppercase">Ar</p>
-              <p className="text-xs font-black text-gray-800">{forecast.airTemp}C</p>
+              <p className="text-xs font-black text-gray-800">{forecast.airTemp}°C</p>
             </div>
             <div>
               <div className="flex justify-center mb-0.5"><MoonPhaseIcon phase={moonPhaseName} /></div>
@@ -512,12 +512,12 @@ export default function SurfForecastTab() {
       <div className="bg-white border border-gray-100 rounded-3xl p-4 shadow-sm relative overflow-hidden">
         <div className="flex items-center justify-between mb-2">
           <h4 className="text-[10px] font-black text-gray-800 uppercase tracking-wider flex items-center gap-1.5">
-            <Waves className="w-3.5 h-3.5 text-blue-500" /> Tabua de Mares
+            <Waves className="w-3.5 h-3.5 text-blue-500" /> Tábua de Marés
           </h4>
           <div className="flex items-center gap-1.5">
             <span className={'text-[8px] font-bold px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm uppercase tracking-wide border ' + (tidesState.source === 'harmonic' ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100')}>
               <span className={'w-1 h-1 rounded-full ' + (tidesState.source === 'harmonic' ? 'bg-amber-500' : 'bg-emerald-500')}></span>
-              {tidesState.source === 'harmonic' ? 'Calculo' : 'Previsao'}
+              {tidesState.source === 'harmonic' ? 'Cálculo' : 'Previsão'}
             </span>
             <span className="bg-gray-50 border border-gray-100 text-[8px] font-bold text-gray-500 px-1.5 py-0.5 rounded flex items-center gap-1 shadow-sm uppercase tracking-wide">
               <MoonPhaseIcon phase={moonPhaseName} />
@@ -574,7 +574,7 @@ export default function SurfForecastTab() {
           ) : (
             <div className="py-8 flex flex-col items-center justify-center text-center">
               <Loader2 className="w-5 h-5 animate-spin text-blue-400 mb-2" />
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Montando Grafico...</span>
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Montando Gráfico...</span>
             </div>
           )}
         </div>
@@ -589,7 +589,7 @@ export default function SurfForecastTab() {
             ))
           ) : (
             <div className="w-full text-center flex justify-center items-center h-full gap-2 text-[10px] font-bold text-gray-400">
-              {tidesState.loading ? 'Carregando mares...' : 'Dados nao encontrados'}
+              {tidesState.loading ? 'Carregando marés...' : 'Dados não encontrados'}
             </div>
           )}
         </div>
@@ -600,16 +600,16 @@ export default function SurfForecastTab() {
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse shadow-[0_0_8px_rgba(244,63,94,0.8)]"></span>
             <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
-              <VideoIcon className="w-3.5 h-3.5 text-rose-500" /> Camera Ao Vivo
+              <VideoIcon className="w-3.5 h-3.5 text-rose-500" /> Câmera Ao Vivo
             </h3>
           </div>
-          <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest bg-blue-950 px-2 py-1 rounded-md">Itacare Surf</span>
+          <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest bg-blue-950 px-2 py-1 rounded-md">Itacaré Surf</span>
         </div>
         <div className="relative w-full pt-[56.25%] bg-black">
           <iframe
             className="absolute top-0 left-0 w-full h-full"
             src="https://www.youtube.com/embed/live_stream?channel=UCZGZhZEMt876Awc3RIAEZzQ&autoplay=1&mute=1"
-            title="Camera Ao Vivo"
+            title="Câmera Ao Vivo"
             frameBorder="0" allowFullScreen
           ></iframe>
         </div>
@@ -634,7 +634,7 @@ export default function SurfForecastTab() {
           </h3>
         </div>
         <p className="text-[11px] text-gray-400 font-medium mb-4 leading-relaxed relative z-10">
-          Tire uma foto <strong className="text-white">AGORA</strong> na praia para provar como esta o mar.
+          Tire uma foto <strong className="text-white">AGORA</strong> na praia para provar como está o mar.
         </p>
         <input type="file" accept="image/*" capture="environment" className="hidden" ref={photoInputRef} onChange={(e) => handleMediaCapture(e, 'photo')} />
         <input type="file" accept="video/*" capture="environment" className="hidden" ref={videoInputRef} onChange={(e) => handleMediaCapture(e, 'video')} />
@@ -643,7 +643,7 @@ export default function SurfForecastTab() {
             <Camera className="w-4 h-4" /> Foto ao Vivo
           </button>
           <button onClick={() => videoInputRef.current?.click()} className="bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white font-black text-xs py-3 rounded-xl flex items-center justify-center gap-1.5 active:scale-95 transition-all">
-            <Video className="w-4 h-4" /> Video ao Vivo
+            <Video className="w-4 h-4" /> Vídeo ao Vivo
           </button>
         </div>
         <div className="space-y-2 relative z-10">
