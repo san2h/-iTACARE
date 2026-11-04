@@ -19,19 +19,23 @@ import { useVoz } from '../../lib/useVoz';
 import { useLiveSession } from '../../lib/useLiveSession';
 import { ROTAS_PERMITIDAS } from '../../lib/guiaIARoutes';
 import GuiaIAMapPreview from '../../components/GuiaIAMapPreview';
-
-import { jevEscolher } from '../../lib/jevClient';
+// Novos imports dos agentes
+import { rotearAgente } from '../../lib/guiaIA/agentRouter';
+import { montarContextoDoAgente } from '../../lib/guiaIA/agentContext';
 import { gerarAudioEdgeTTS } from '../../lib/edgeTTS';
 import { SYSTEM_PROMPT, SUGGESTIONS } from '../../lib/guiaIAConfig';
 import { SUPABASE_ANON_KEY } from '../../lib/supabaseConfig';
 
 const SUPABASE_PROJECT_ID = 'jjdrudvqkfqbvayhyfrh';
 const LLM_CHAT_FUNCTION_URL = `https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/llm-chat`;
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 40000;
 
-async function perguntarParaIA(historico, contextoDinamico = '') {
+async function perguntarParaIA(historico, contextoDinamico = '', agente = 'geral') {
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT + contextoDinamico },
+    {
+      role: 'system',
+      content: [SYSTEM_PROMPT, contextoDinamico].filter(Boolean).join('\n\n'),
+    },
     ...historico.slice(-6).map((msg) => ({
       role: msg.role === 'assistant' ? 'assistant' : 'user',
       content: msg.content,
@@ -49,7 +53,7 @@ async function perguntarParaIA(historico, contextoDinamico = '') {
         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
         'apikey': SUPABASE_ANON_KEY,
       },
-      body: JSON.stringify({ messages }),
+      body: JSON.stringify({ messages, agent: agente }),
       signal: controller.signal,
     });
     clearTimeout(timer);
@@ -288,18 +292,6 @@ export default function GuiaIA() {
     setErro(null);
     pararAudio();
 
-    try {
-      jevEscolher(pergunta, 'Classifique', {
-        restaurante: '1',
-        praia: '1',
-        evento: '1',
-        aluguel: '1',
-        carona: '1',
-        app: '1',
-        outro: '1',
-      });
-    } catch {}
-
     const novasMensagens = [...mensagensRef.current, { role: 'user', content: pergunta }];
     mensagensRef.current = novasMensagens;
     setMensagens(novasMensagens);
@@ -308,7 +300,37 @@ export default function GuiaIA() {
     setCarregando(true);
 
     try {
-      const resposta = await perguntarParaIA(novasMensagens, dynamicContext);
+      // 1. O JEV escolhe qual especialista deve responder.
+      let agente = 'geral';
+      try {
+        const rota = await rotearAgente(
+          pergunta,
+          mensagensRef.current.slice(0, -1),
+        );
+        agente = rota?.agente || 'geral';
+        console.log('[GuiaIA] Agente selecionado:', agente, rota);
+      } catch (erroRota) {
+        console.warn('[GuiaIA] Falha no roteamento; usando agente geral:', erroRota);
+      }
+
+      // 2. Carrega apenas o contexto relevante para o agente escolhido.
+      let contextoAgente = '';
+      try {
+        contextoAgente = await montarContextoDoAgente(agente, pergunta);
+      } catch (erroContexto) {
+        console.warn('[GuiaIA] Falha no contexto especializado:', erroContexto);
+        // O contexto geral pré-carregado é usado apenas como contingência.
+        contextoAgente = dynamicContext || '';
+      }
+
+      console.log('[GuiaIA] Enviando pergunta para:', agente);
+      console.log('[GuiaIA] Contexto do agente:', contextoAgente.length, 'caracteres');
+
+      const resposta = await perguntarParaIA(
+        novasMensagens,
+        contextoAgente,
+        agente,
+      );
       const comResposta = [
         ...mensagensRef.current,
         { role: 'assistant', content: resposta },

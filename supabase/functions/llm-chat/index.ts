@@ -1,4 +1,3 @@
-
 // supabase/functions/llm-chat/index.ts
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -17,16 +16,73 @@ const NVIDIA_MODEL = Deno.env.get('NVIDIA_MODEL') || 'nvidia/nemotron-3.5-lightn
 const DEFAULT_MAX_TOKENS = 700;
 const MAX_ALLOWED_TOKENS = 1200;
 
-// Controle de cooldown por instância Deno.
-const cooldowns = new Map<string, number>();
+// Perfis dos especialistas. Cada agente pode receber um modelo Gemini próprio
+// por variável de ambiente; sem configuração, todos usam GEMINI_MODEL.
+const AGENT_PROFILES = {
+  surf: {
+    modelEnv: 'GEMINI_MODEL_SURF',
+    maxTokens: 900,
+    instruction: `Você é o especialista de SURF, PRAIAS E OCEANOGRAFIA do Guia IA do +iTACARÉ.
+Analise altura e período das ondas, direção do swell, vento, maré e características conhecidas das praias de Itacaré.
+Diferencie dados medidos, previsão e características gerais. Não invente condições por praia nem diga que uma praia está boa agora sem dados suficientes.
+A previsão marítima disponível pode ter como referência a Praia da Tiririca; quando o contexto indicar isso, deixe claro que ela não representa medições individuais de todas as praias.
+Ao comparar praias, explique a adequação provável considerando exposição e características conhecidas, sem fabricar medições locais. Se faltarem dados, diga exatamente o que está faltando e dê uma orientação prudente.`,
+  },
+  clima: {
+    modelEnv: 'GEMINI_MODEL_CLIMA',
+    maxTokens: 700,
+    instruction: `Você é o especialista de CLIMA, TEMPO E MARÉS de Itacaré.
+Priorize os dados atuais e a previsão incluídos no contexto, informando período e local de referência. Diferencie condição atual de previsão. Não invente chuva, vento, temperatura, maré ou horários que não estejam nos dados.`,
+  },
+  gastronomia: {
+    modelEnv: 'GEMINI_MODEL_GASTRONOMIA',
+    maxTokens: 700,
+    instruction: `Você é o especialista em GASTRONOMIA de Itacaré.
+Ajude a encontrar restaurantes, cafés, bares, pizzarias e pratos usando os registros fornecidos. Respeite nomes, endereços, categorias, faixas de preço e informações presentes no contexto. Não invente estabelecimentos, cardápios, preços, horários ou disponibilidade.`,
+  },
+  hospedagem: {
+    modelEnv: 'GEMINI_MODEL_HOSPEDAGEM',
+    maxTokens: 700,
+    instruction: `Você é o especialista em HOSPEDAGEM de Itacaré.
+Ajude a comparar hotéis, pousadas, hostels e outras acomodações com base nos registros fornecidos. Não invente tarifas, vagas, comodidades, localização ou políticas. Avise quando for necessário confirmar disponibilidade e preço diretamente com o estabelecimento.`,
+  },
+  turismo: {
+    modelEnv: 'GEMINI_MODEL_TURISMO',
+    maxTokens: 850,
+    instruction: `Você é o especialista em TURISMO, PRAIAS, TRILHAS, CACHOEIRAS E PASSEIOS de Itacaré.
+Use os lugares e detalhes do contexto para sugerir opções adequadas ao pedido. Considere deslocamento, perfil do passeio e cuidados práticos quando houver dados. Não invente distâncias, condições de acesso, taxas ou funcionamento.`,
+  },
+  eventos: {
+    modelEnv: 'GEMINI_MODEL_EVENTOS',
+    maxTokens: 700,
+    instruction: `Você é o especialista em EVENTOS E PROGRAMAÇÃO de Itacaré.
+Use datas, horários e locais presentes no contexto. Diferencie evento confirmado de informação incompleta ou antiga. Não invente agenda, atrações, ingressos ou horários. Quando não houver evento cadastrado, informe isso com clareza.`,
+  },
+  servicos: {
+    modelEnv: 'GEMINI_MODEL_SERVICOS',
+    maxTokens: 700,
+    instruction: `Você é o especialista em SERVIÇOS LOCAIS de Itacaré, incluindo transportes, aluguéis, aulas, guias e prestadores.
+Baseie recomendações nos registros fornecidos. Não invente telefone, preço, disponibilidade, contato ou serviço oferecido.`,
+  },
+  app: {
+    modelEnv: 'GEMINI_MODEL_APP',
+    maxTokens: 700,
+    instruction: `Você é o assistente de suporte do aplicativo +iTACARÉ.
+Explique funcionalidades e navegação do aplicativo apenas com base no contexto disponível. Se não souber se uma função existe ou onde está, não invente; peça ao usuário que descreva a tela ou informe que precisa confirmar.`,
+  },
+  geral: {
+    modelEnv: 'GEMINI_MODEL_GERAL',
+    maxTokens: 700,
+    instruction: `Você é o Guia IA do +iTACARÉ, assistente local de Itacaré-BA.
+Responda em português brasileiro, de forma natural, útil e direta. Use o contexto fornecido, não invente informações locais e diga quando não houver dados suficientes.`,
+  },
+} as const;
 
-const groqBudget = {
-  remainingTokens: null as number | null,
-  resetAt: 0,
-};
+type AgentName = keyof typeof AGENT_PROFILES;
+type ChatRole = 'system' | 'user' | 'assistant';
 
 type ChatMessage = {
-  role: 'system' | 'user' | 'assistant' | string;
+  role: ChatRole;
   content: string;
 };
 
@@ -40,6 +96,16 @@ type ProviderResult = {
   status?: number;
   erro?: string;
   retryAfterMs?: number;
+};
+
+const cooldowns = new Map<string, number>();
+
+const groqBudget: {
+  remainingTokens: number | null;
+  resetAt: number;
+} = {
+  remainingTokens: null,
+  resetAt: 0,
 };
 
 function jsonResponse(body: unknown, status = 200) {
@@ -56,15 +122,45 @@ function cleanText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-function clampTokens(value: unknown): number {
+function clampTokens(value: unknown, fallback = DEFAULT_MAX_TOKENS): number {
   const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(128, Math.min(Math.floor(parsed), MAX_ALLOWED_TOKENS));
+}
 
-  if (!Number.isFinite(parsed)) return DEFAULT_MAX_TOKENS;
+function obterPerfilAgente(value: unknown): {
+  agent: AgentName;
+  model: string;
+  maxTokens: number;
+  instruction: string;
+} {
+  const candidate = cleanText(value).toLowerCase();
+  const aliases: Record<string, AgentName> = {
+    restaurante: 'gastronomia',
+    restaurantes: 'gastronomia',
+    praia: 'turismo',
+    praias: 'turismo',
+    aluguel: 'servicos',
+    carona: 'servicos',
+    servico: 'servicos',
+    outro: 'geral',
+  };
 
-  return Math.max(
-    128,
-    Math.min(Math.floor(parsed), MAX_ALLOWED_TOKENS),
-  );
+  const agent = (
+    Object.prototype.hasOwnProperty.call(AGENT_PROFILES, candidate)
+      ? candidate
+      : aliases[candidate] || 'geral'
+  ) as AgentName;
+
+  const profile = AGENT_PROFILES[agent];
+  const configuredModel = Deno.env.get(profile.modelEnv);
+
+  return {
+    agent,
+    model: cleanText(configuredModel) || GEMINI_PRIMARY_MODEL,
+    maxTokens: profile.maxTokens,
+    instruction: profile.instruction,
+  };
 }
 
 function estimateTokens(messages: ChatMessage[]): number {
@@ -72,21 +168,19 @@ function estimateTokens(messages: ChatMessage[]): number {
     (total, message) => total + message.content.length,
     0,
   );
-
   return Math.ceil(characters / 3.5);
 }
 
 function parseDurationMs(value: string | null): number | null {
   if (!value) return null;
 
-  const seconds = Number(value);
-
+  const trimmed = value.trim();
+  const seconds = Number(trimmed);
   if (Number.isFinite(seconds)) {
     return Math.max(0, seconds * 1000);
   }
 
-  const match = value.match(/([\d.]+)\s*(ms|s|m)/i);
-
+  const match = trimmed.match(/^([\d.]+)\s*(ms|s|m)$/i);
   if (!match) return null;
 
   const amount = Number(match[1]);
@@ -103,10 +197,7 @@ function getRetryAfterMs(headers: Headers): number {
 }
 
 function applyCooldown(name: string, durationMs: number) {
-  cooldowns.set(
-    name,
-    Date.now() + Math.max(1000, durationMs),
-  );
+  cooldowns.set(name, Date.now() + Math.max(1000, durationMs));
 }
 
 function cooldownRemaining(name: string): number {
@@ -124,13 +215,7 @@ function cooldownRemaining(name: string): number {
 function parseErrorBody(raw: string): string {
   try {
     const parsed = JSON.parse(raw);
-
-    return String(
-      parsed?.error?.message ??
-      parsed?.message ??
-      raw
-    ).slice(0, 500);
-
+    return String(parsed?.error?.message ?? parsed?.message ?? raw).slice(0, 500);
   } catch {
     return raw.slice(0, 500);
   }
@@ -153,19 +238,12 @@ function prepararConteudoGemini(messages: ChatMessage[]) {
   }> = [];
 
   for (const message of messages) {
-    if (
-      message.role !== 'user' &&
-      message.role !== 'assistant'
-    ) {
-      continue;
-    }
+    if (message.role !== 'user' && message.role !== 'assistant') continue;
 
     const content = cleanText(message.content);
-
     if (!content) continue;
 
     const role = message.role === 'assistant' ? 'model' : 'user';
-
     const previous = turns[turns.length - 1];
 
     if (previous?.role === role) {
@@ -178,7 +256,7 @@ function prepararConteudoGemini(messages: ChatMessage[]) {
     }
   }
 
-  // Remove eventual saudação inicial fixa do assistente.
+  // Remove uma eventual saudação fixa do assistente antes da primeira pergunta.
   while (turns.length && turns[0].role !== 'user') {
     turns.shift();
   }
@@ -196,41 +274,33 @@ async function chamarGemini(
   model: string,
   providerName: string,
 ): Promise<ProviderResult> {
-
   const key = Deno.env.get('GEMINI_API_KEY');
-
   if (!key) {
-    return {
-      ok: false,
-      motivo: 'GEMINI_API_KEY ausente',
-    };
+    return { ok: false, motivo: 'GEMINI_API_KEY ausente' };
   }
 
   const { system, contents } = prepararConteudoGemini(messages);
-
-  if (
-    !contents.length ||
-    contents[contents.length - 1].role !== 'user'
-  ) {
+  if (!contents.length || contents[contents.length - 1].role !== 'user') {
     return {
       ok: false,
       motivo: 'historico_gemini_invalido_ou_sem_pergunta_atual',
     };
   }
 
+  const generationConfig: Record<string, unknown> = {
+    maxOutputTokens: Math.min(maxTokens, 900),
+  };
+
+  // Mantém o raciocínio econômico usado na configuração atual do projeto.
+  if (model.startsWith('gemini-3.')) {
+    generationConfig.thinkingConfig = {
+      thinkingLevel: model === 'gemini-3.8-flash' ? 'low' : 'minimal',
+    };
+  }
+
   const body: Record<string, unknown> = {
     contents,
-
-    generationConfig: {
-      maxOutputTokens: Math.min(maxTokens, 900),
-
-      thinkingConfig: {
-        thinkingLevel:
-          model === 'gemini-3.8-flash'
-            ? 'low'
-            : 'minimal',
-      },
-    },
+    generationConfig,
   };
 
   if (system) {
@@ -244,29 +314,22 @@ async function chamarGemini(
       `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
       {
         method: 'POST',
-
         headers: {
           'Content-Type': 'application/json',
           'x-goog-api-key': key,
         },
-
         body: JSON.stringify(body),
-
         signal: AbortSignal.timeout(8000),
       },
     );
 
     if (!response.ok) {
       const raw = await response.text();
+      const retryAfterMs = response.status === 429
+        ? getRetryAfterMs(response.headers)
+        : undefined;
 
-      const retryAfterMs =
-        response.status === 429
-          ? getRetryAfterMs(response.headers)
-          : undefined;
-
-      if (retryAfterMs) {
-        applyCooldown(providerName, retryAfterMs);
-      }
+      if (retryAfterMs) applyCooldown(providerName, retryAfterMs);
 
       return {
         ok: false,
@@ -277,9 +340,7 @@ async function chamarGemini(
     }
 
     const data = await response.json();
-
     const candidate = data?.candidates?.[0];
-
     const parts = Array.isArray(candidate?.content?.parts)
       ? candidate.content.parts
       : [];
@@ -297,7 +358,8 @@ async function chamarGemini(
         motivo: `sem_conteudo (finishReason=${candidate?.finishReason ?? 'N/I'})`,
         erro: JSON.stringify({
           usageMetadata: data?.usageMetadata ?? null,
-        }).slice(0, 300),
+          promptFeedback: data?.promptFeedback ?? null,
+        }).slice(0, 500),
       };
     }
 
@@ -308,16 +370,12 @@ async function chamarGemini(
       model,
       usage: data?.usageMetadata ?? null,
     };
-
   } catch (error) {
     const err = error as Error;
-
     return {
       ok: false,
-
       motivo:
-        err.name === 'TimeoutError' ||
-        err.name === 'AbortError'
+        err.name === 'TimeoutError' || err.name === 'AbortError'
           ? 'timeout'
           : (err.message || 'erro_de_rede'),
     };
@@ -332,18 +390,10 @@ async function chamarGroq(
   messages: ChatMessage[],
   maxTokens: number,
 ): Promise<ProviderResult> {
-
   const key = Deno.env.get('GROQ_API_KEY');
-
-  if (!key) {
-    return {
-      ok: false,
-      motivo: 'GROQ_API_KEY ausente',
-    };
-  }
+  if (!key) return { ok: false, motivo: 'GROQ_API_KEY ausente' };
 
   const cooldown = cooldownRemaining('groq');
-
   if (cooldown > 0) {
     return {
       ok: false,
@@ -353,7 +403,6 @@ async function chamarGroq(
   }
 
   const estimated = estimateTokens(messages) + maxTokens;
-
   if (
     groqBudget.resetAt > Date.now() &&
     groqBudget.remainingTokens !== null &&
@@ -371,12 +420,10 @@ async function chamarGroq(
       'https://api.groq.com/openai/v1/chat/completions',
       {
         method: 'POST',
-
         headers: {
           Authorization: `Bearer ${key}`,
           'Content-Type': 'application/json',
         },
-
         body: JSON.stringify({
           model: GROQ_MODEL,
           messages,
@@ -385,23 +432,15 @@ async function chamarGroq(
           max_completion_tokens: Math.min(maxTokens, 700),
           stream: false,
         }),
-
         signal: AbortSignal.timeout(7000),
       },
     );
 
-    const remainingHeader =
-      response.headers.get('x-ratelimit-remaining-tokens');
-
-    const remaining =
-      remainingHeader === null
-        ? NaN
-        : Number(remainingHeader);
-
-    const resetMs =
-      parseDurationMs(
-        response.headers.get('x-ratelimit-reset-tokens'),
-      ) ?? 60000;
+    const remainingHeader = response.headers.get('x-ratelimit-remaining-tokens');
+    const remaining = remainingHeader === null ? NaN : Number(remainingHeader);
+    const resetMs = parseDurationMs(
+      response.headers.get('x-ratelimit-reset-tokens'),
+    ) ?? 60000;
 
     if (Number.isFinite(remaining)) {
       groqBudget.remainingTokens = remaining;
@@ -410,15 +449,11 @@ async function chamarGroq(
 
     if (!response.ok) {
       const raw = await response.text();
+      const retryAfterMs = response.status === 429
+        ? getRetryAfterMs(response.headers)
+        : undefined;
 
-      const retryAfterMs =
-        response.status === 429
-          ? getRetryAfterMs(response.headers)
-          : undefined;
-
-      if (retryAfterMs) {
-        applyCooldown('groq', retryAfterMs);
-      }
+      if (retryAfterMs) applyCooldown('groq', retryAfterMs);
 
       return {
         ok: false,
@@ -429,20 +464,16 @@ async function chamarGroq(
     }
 
     const data = await response.json();
-
-    const messageContent =
-      data?.choices?.[0]?.message?.content;
-
-    const content =
-      typeof messageContent === 'string'
-        ? messageContent.trim()
-        : Array.isArray(messageContent)
-          ? messageContent
-              .map((part: any) => cleanText(part?.text))
-              .filter(Boolean)
-              .join('\n')
-              .trim()
-          : '';
+    const messageContent = data?.choices?.[0]?.message?.content;
+    const content = typeof messageContent === 'string'
+      ? messageContent.trim()
+      : Array.isArray(messageContent)
+        ? messageContent
+            .map((part: any) => cleanText(part?.text))
+            .filter(Boolean)
+            .join('\n')
+            .trim()
+        : '';
 
     if (!content) {
       return {
@@ -458,16 +489,12 @@ async function chamarGroq(
       model: GROQ_MODEL,
       usage: data?.usage ?? null,
     };
-
   } catch (error) {
     const err = error as Error;
-
     return {
       ok: false,
-
       motivo:
-        err.name === 'TimeoutError' ||
-        err.name === 'AbortError'
+        err.name === 'TimeoutError' || err.name === 'AbortError'
           ? 'timeout'
           : (err.message || 'erro_de_rede'),
     };
@@ -482,18 +509,10 @@ async function chamarNvidia(
   messages: ChatMessage[],
   maxTokens: number,
 ): Promise<ProviderResult> {
-
   const key = Deno.env.get('NVIDIA_API_KEY');
-
-  if (!key) {
-    return {
-      ok: false,
-      motivo: 'NVIDIA_API_KEY ausente',
-    };
-  }
+  if (!key) return { ok: false, motivo: 'NVIDIA_API_KEY ausente' };
 
   const cooldown = cooldownRemaining('nvidia');
-
   if (cooldown > 0) {
     return {
       ok: false,
@@ -507,46 +526,32 @@ async function chamarNvidia(
       'https://integrate.api.nvidia.com/v1/chat/completions',
       {
         method: 'POST',
-
         headers: {
           Authorization: `Bearer ${key}`,
           'Content-Type': 'application/json',
         },
-
         body: JSON.stringify({
           model: NVIDIA_MODEL,
           messages,
-
-          max_tokens: Math.min(
-            Math.max(maxTokens, 800),
-            1200,
-          ),
-
+          max_tokens: Math.min(Math.max(maxTokens, 800), 1200),
           stream: false,
-
           reasoning_budget: 0,
-
           chat_template_kwargs: {
             enable_thinking: false,
             reasoning_budget: 0,
           },
         }),
-
         signal: AbortSignal.timeout(8000),
       },
     );
 
     if (!response.ok) {
       const raw = await response.text();
+      const retryAfterMs = response.status === 429
+        ? getRetryAfterMs(response.headers)
+        : undefined;
 
-      const retryAfterMs =
-        response.status === 429
-          ? getRetryAfterMs(response.headers)
-          : undefined;
-
-      if (retryAfterMs) {
-        applyCooldown('nvidia', retryAfterMs);
-      }
+      if (retryAfterMs) applyCooldown('nvidia', retryAfterMs);
 
       return {
         ok: false,
@@ -557,14 +562,8 @@ async function chamarNvidia(
     }
 
     const data = await response.json();
-
-    const rawContent =
-      data?.choices?.[0]?.message?.content;
-
-    const content =
-      typeof rawContent === 'string'
-        ? rawContent.trim()
-        : '';
+    const rawContent = data?.choices?.[0]?.message?.content;
+    const content = typeof rawContent === 'string' ? rawContent.trim() : '';
 
     if (!content) {
       return {
@@ -580,16 +579,12 @@ async function chamarNvidia(
       model: NVIDIA_MODEL,
       usage: data?.usage ?? null,
     };
-
   } catch (error) {
     const err = error as Error;
-
     return {
       ok: false,
-
       motivo:
-        err.name === 'TimeoutError' ||
-        err.name === 'AbortError'
+        err.name === 'TimeoutError' || err.name === 'AbortError'
           ? 'timeout'
           : (err.message || 'erro_de_rede'),
     };
@@ -601,101 +596,94 @@ async function chamarNvidia(
 // ============================================================
 
 serve(async (req) => {
-
   if (req.method === 'OPTIONS') {
-    return new Response('ok', {
-      headers: corsHeaders,
-    });
+    return new Response('ok', { headers: corsHeaders });
   }
 
   if (req.method !== 'POST') {
-    return jsonResponse(
-      { error: 'Método não permitido' },
-      405,
-    );
+    return jsonResponse({ error: 'Método não permitido' }, 405);
   }
 
   try {
-
     const payload = await req.json();
-
     const incomingMessages = payload?.messages;
 
-    if (
-      !Array.isArray(incomingMessages) ||
-      incomingMessages.length === 0
-    ) {
+    if (!Array.isArray(incomingMessages) || incomingMessages.length === 0) {
       return jsonResponse(
-        {
-          error: 'messages é obrigatório e deve ser um array',
-        },
+        { error: 'messages é obrigatório e deve ser um array' },
         400,
       );
     }
 
-    const messages: ChatMessage[] = incomingMessages
-      .filter(
-        (message: any) =>
-          message &&
-          typeof message.content === 'string',
+    // Preserva as instruções system, mesmo quando o histórico da conversa cresce.
+    const normalizedMessages: ChatMessage[] = incomingMessages
+      .filter((message: any) =>
+        message &&
+        ['system', 'user', 'assistant'].includes(String(message.role)) &&
+        typeof message.content === 'string'
       )
-      .slice(-12)
       .map((message: any) => ({
-        role: String(message.role || 'user'),
+        role: message.role as ChatRole,
         content: message.content.slice(0, 20000),
       }));
 
-    if (
-      !messages.some(
-        (message) =>
-          message.role === 'user' &&
-          message.content.trim(),
-      )
-    ) {
+    const systemMessages = normalizedMessages
+      .filter((message) => message.role === 'system')
+      .slice(0, 3);
+
+    const conversation = normalizedMessages
+      .filter((message) => message.role === 'user' || message.role === 'assistant')
+      .slice(-10);
+
+    if (!conversation.length || conversation[conversation.length - 1].role !== 'user') {
       return jsonResponse(
-        {
-          error: 'A mensagem atual do usuário está vazia',
-        },
+        { error: 'A mensagem atual do usuário está vazia ou não é a última mensagem' },
         400,
       );
     }
 
-    const maxTokens = clampTokens(payload?.max_tokens);
+    if (!conversation.some((message) => message.role === 'user' && message.content.trim())) {
+      return jsonResponse({ error: 'A mensagem atual do usuário está vazia' }, 400);
+    }
 
+    const perfil = obterPerfilAgente(payload?.agent);
+    const systemContent = [
+      ...systemMessages.map((message) => message.content),
+      perfil.instruction,
+    ].filter(Boolean).join('\n\n');
+
+    const messages: ChatMessage[] = [
+      { role: 'system', content: systemContent.slice(0, 30000) },
+      ...conversation,
+    ];
+
+    const maxTokens = clampTokens(payload?.max_tokens, perfil.maxTokens);
     const erros: Array<Record<string, unknown>> = [];
 
     const providers: Array<{
       name: string;
       run: () => Promise<ProviderResult>;
     }> = [
-
       {
         name: 'gemini',
-
-        run: () =>
-          chamarGemini(
-            messages,
-            maxTokens,
-            GEMINI_PRIMARY_MODEL,
-            'gemini',
-          ),
+        run: () => chamarGemini(
+          messages,
+          maxTokens,
+          perfil.model,
+          'gemini',
+        ),
       },
-
     ];
 
-    if (
-      GEMINI_FALLBACK_MODEL !== GEMINI_PRIMARY_MODEL
-    ) {
+    if (GEMINI_FALLBACK_MODEL !== perfil.model) {
       providers.push({
         name: 'gemini-backup',
-
-        run: () =>
-          chamarGemini(
-            messages,
-            maxTokens,
-            GEMINI_FALLBACK_MODEL,
-            'gemini-backup',
-          ),
+        run: () => chamarGemini(
+          messages,
+          maxTokens,
+          GEMINI_FALLBACK_MODEL,
+          'gemini-backup',
+        ),
       });
     }
 
@@ -710,32 +698,26 @@ serve(async (req) => {
       },
     );
 
-    // Fallback sequencial: uma chamada por provedor.
+    console.log(
+      `[llm-chat] agente=${perfil.agent} modeloGemini=${perfil.model}`,
+    );
+
+    // Fallback sequencial: uma tentativa por provedor.
     for (const provider of providers) {
-
       const wait = cooldownRemaining(provider.name);
-
       if (wait > 0) {
         erros.push({
           provedor: provider.name,
           motivo: 'cooldown_ativo',
           retryAfterMs: wait,
         });
-
         continue;
       }
 
-      console.log(
-        `[llm-chat] Tentando ${provider.name}...`,
-      );
-
+      console.log(`[llm-chat] Tentando ${provider.name} para ${perfil.agent}...`);
       const result = await provider.run();
 
-      if (
-        result.ok &&
-        result.content?.trim()
-      ) {
-
+      if (result.ok && result.content?.trim()) {
         console.log(
           `[llm-chat] Sucesso: ${result.provider}/${result.model} | ` +
           `uso=${JSON.stringify(result.usage ?? null).slice(0, 500)}`,
@@ -745,6 +727,7 @@ serve(async (req) => {
           content: result.content.trim(),
           provider: result.provider,
           model: result.model,
+          agent: perfil.agent,
           usage: result.usage ?? null,
         });
       }
@@ -759,38 +742,25 @@ serve(async (req) => {
         ...result,
       });
 
-      if (
-        result.status === 429 &&
-        result.retryAfterMs
-      ) {
-        applyCooldown(
-          provider.name,
-          result.retryAfterMs,
-        );
+      if (result.status === 429 && result.retryAfterMs) {
+        applyCooldown(provider.name, result.retryAfterMs);
       }
     }
 
     return jsonResponse(
       {
         error: 'Todos os provedores falharam. Nenhuma resposta válida foi gerada.',
+        agent: perfil.agent,
         detalhes: erros,
       },
       503,
     );
-
   } catch (error) {
-
     const err = error as Error;
-
-    console.error(
-      '[llm-chat] Erro fatal:',
-      err,
-    );
+    console.error('[llm-chat] Erro fatal:', err);
 
     return jsonResponse(
-      {
-        error: `Erro interno: ${err.message || 'desconhecido'}`,
-      },
+      { error: `Erro interno: ${err.message || 'desconhecido'}` },
       500,
     );
   }
