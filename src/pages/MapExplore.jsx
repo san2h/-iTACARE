@@ -11,7 +11,7 @@ import {
   Waves, Wind, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import GoogleMiniMap from '../components/GoogleMiniMap';
+import GoogleMiniMap, { extrairEmbedOficial } from '../components/GoogleMiniMap';
 
 const LAYER_URLS = {
   dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -895,8 +895,11 @@ export default function MapExplore() {
               </div>
             </div>
 
-            {/* Miniatura estática do Google Maps (só não parceiros), sem chave de API */}
-            {!selectedPlace.is_partner && <GoogleMiniMap place={selectedPlace} />}
+            {/* Miniatura estática do Google Maps, sem chave de API.
+                Não parceiros: sempre. Parceiros: só se tiverem o link de "Incorporar" (com estrelas). */}
+            {(!selectedPlace.is_partner || extrairEmbedOficial(selectedPlace.google_embed_url)) && (
+              <GoogleMiniMap place={selectedPlace} />
+            )}
 
             <div className="flex gap-2 pt-1">
               <button
