@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 // O Google só mostra o cartão do local (nome, endereço, estrelas) quando o
-// iframe tem ~440px ou mais de largura. A sheet no celular tem ~340px, então
+// iframe tem ~500px ou mais de largura (480 falhou nos testes; 560 dá margem). A sheet no celular tem ~340px, então
 // renderizamos o iframe nesta largura fixa e reduzimos com transform: scale.
-const LARGURA_VIRTUAL = 480;
+const LARGURA_VIRTUAL = 560;
 
 // Aceita tanto o src quanto o <iframe ...> inteiro copiado de
 // Google Maps > Compartilhar > Incorporar um mapa.
