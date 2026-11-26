@@ -11,6 +11,7 @@ import {
   Waves, Wind, Eye, EyeOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import GoogleMiniMap from '../components/GoogleMiniMap';
 
 const LAYER_URLS = {
   dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
@@ -419,21 +420,6 @@ export default function MapExplore() {
     currentTileLayerRef.current = newTileLayer;
     setActiveLayer(layerName);
     setShowLayerMenu(false);
-  };
-
-  // Miniatura do Google SEM chave de API.
-  // 1) Se o admin colou o link oficial de "Compartilhar > Incorporar um mapa"
-  //    (https://www.google.com/maps/embed?pb=...), usa ele: é o mais preciso.
-  // 2) Senão, usa o embed clássico por busca (output=embed). Não é documentado
-  //    oficialmente pelo Google e pode mudar sem aviso.
-  const urlEmbedGoogle = (place, { zoom = 17 } = {}) => {
-    const oficial = place.google_embed_url;
-    if (typeof oficial === 'string' && oficial.startsWith('https://www.google.com/maps/embed?')) {
-      return oficial;
-    }
-    const q = `${place.name}, Itacaré - BA`;
-    const ll = place.latitude && place.longitude ? `&ll=${place.latitude},${place.longitude}` : '';
-    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}${ll}&z=${zoom}&hl=pt-BR&output=embed`;
   };
 
   const handleTraceRoute = (place) => {
@@ -909,19 +895,8 @@ export default function MapExplore() {
               </div>
             </div>
 
-            {/* Miniatura estática do Google Maps (só não parceiros). 200px de altura para o cartão do Google caber */}
-            {!selectedPlace.is_partner && (
-              <div className="w-full h-[200px] rounded-2xl overflow-hidden border border-blue-900/50 bg-blue-950">
-                <iframe
-                  key={selectedPlace.id}
-                  title={`Google Maps - ${selectedPlace.name}`}
-                  src={urlEmbedGoogle(selectedPlace)}
-                  className="w-full h-full border-0 pointer-events-none"
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                />
-              </div>
-            )}
+            {/* Miniatura estática do Google Maps (só não parceiros), sem chave de API */}
+            {!selectedPlace.is_partner && <GoogleMiniMap place={selectedPlace} />}
 
             <div className="flex gap-2 pt-1">
               <button
