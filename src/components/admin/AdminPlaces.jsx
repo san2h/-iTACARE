@@ -75,7 +75,7 @@ export default function AdminPlaces() {
 
     try {
       const { error } = await supabase.functions.invoke('mp-connect', {
-        body: { code, state }
+        body: { code, state, redirect_uri: `${window.location.origin}/admin` }
       });
 
       if (error) {
