@@ -65,7 +65,7 @@ const { error: errPub } = await supabase.storage
   .from(BUCKET)
   .upload(PUBLIC_NAME, fileBuffer, {
     contentType: 'application/vnd.android.package-archive',
-    cacheControl: '3600',
+    cacheControl: '0', // sem cache: o mesmo link sempre entrega a build mais recente
     upsert: true,
   });
 
@@ -79,7 +79,8 @@ console.log('OK');
 const versionPath = path.join('dist', 'version.json');
 if (fs.existsSync(versionPath)) {
   const info = JSON.parse(fs.readFileSync(versionPath, 'utf-8'));
-  info.apkUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + PUBLIC_NAME;
+  // Link único desta build (arquivo do histórico): nunca cai em cache de uma build antiga
+  info.apkUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + encodeURIComponent(historicoName);
   info.notes = process.argv.slice(2).join(' ') || process.env.NOTAS || '';
   console.log('[3/3] Publicando version.json (buildId ' + info.buildId + ')');
   const { error: errVer } = await supabase.storage
