@@ -75,6 +75,29 @@ if (errPub) {
 }
 console.log('OK');
 
+// [3/3] Publica a versão para o aviso de atualização dentro do app
+const versionPath = path.join('dist', 'version.json');
+if (fs.existsSync(versionPath)) {
+  const info = JSON.parse(fs.readFileSync(versionPath, 'utf-8'));
+  info.apkUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + PUBLIC_NAME;
+  info.notes = process.argv.slice(2).join(' ') || process.env.NOTAS || '';
+  console.log('[3/3] Publicando version.json (buildId ' + info.buildId + ')');
+  const { error: errVer } = await supabase.storage
+    .from(BUCKET)
+    .upload('version.json', JSON.stringify(info), {
+      contentType: 'application/json',
+      cacheControl: '60',
+      upsert: true,
+    });
+  if (errVer) {
+    console.error('Falha ao publicar version.json:', errVer.message);
+    process.exit(1);
+  }
+  console.log('OK');
+} else {
+  console.warn('dist/version.json não encontrado — os usuários não serão avisados desta build.');
+}
+
 const publicUrl = SUPABASE_URL + '/storage/v1/object/public/' + BUCKET + '/' + PUBLIC_NAME;
 
 console.log('');

@@ -6,6 +6,19 @@ import { readFileSync } from 'fs'                                    // ← NOVO
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))      // ← NOVO
 
+// Número único de cada build: o app instalado compara com builds/version.json
+const BUILD_ID = Date.now()
+const versionJsonPlugin = () => ({
+  name: 'itacare-version-json',
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'version.json',
+      source: JSON.stringify({ buildId: BUILD_ID, version: pkg.version, date: new Date().toISOString() }),
+    })
+  },
+})
+
 export default defineConfig(({ mode }) => {
   const isCapacitor = mode === 'capacitor'
 
@@ -13,10 +26,12 @@ export default defineConfig(({ mode }) => {
     define: {                                                        // ← NOVO (bloco inteiro)
       __APP_VERSION__: JSON.stringify(pkg.version),
       __APP_BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)),
+      __APP_BUILD_ID__: JSON.stringify(BUILD_ID),
     },
 
     plugins: [
       react(),
+      versionJsonPlugin(),
       // PWA só ativa fora do build Capacitor (web normal)
       !isCapacitor && VitePWA({ 
         registerType: 'autoUpdate',

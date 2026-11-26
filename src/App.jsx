@@ -4,6 +4,7 @@ import { AuthProvider } from './lib/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import AppLayout from './components/layout/AppLayout';
 import { Toaster } from 'sonner';
+import UpdateNotice from './components/UpdateNotice';
 
 // Importação das Telas de Autenticação (Públicas)
 import Login from './pages/auth/Login';
@@ -138,6 +139,7 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
+        <UpdateNotice />
       </BrowserRouter>
 
       <Toaster position="top-right" richColors closeButton /> 
