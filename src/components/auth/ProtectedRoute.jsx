@@ -12,7 +12,7 @@ export function welcomeJaVisto() {
 
 /**
  * mode:
- *  - 'public'  : visitante (sem conta) pode ver. Na primeira abertura vai para /welcome.
+ *  - 'public'  : visitante (sem conta) pode ver. Na primeira abertura vai para /onboarding.
  *  - 'auth'    : exige login (comportamento original).
  *  - 'premium' : visitante/free vê o Paywall; só Premium acessa.
  */
@@ -28,7 +28,7 @@ export default function ProtectedRoute({ mode = 'auth' }) {
   if (!user) {
     if (mode === 'public') {
       if (location.pathname === '/' && !welcomeJaVisto()) {
-        return <Navigate to="/welcome" replace />;
+        return <Navigate to="/onboarding" replace />;
       }
       return <Outlet />;
     }

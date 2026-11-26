@@ -11,7 +11,6 @@ import Register from './pages/auth/Register';
 import ForgotPassword from './pages/auth/ForgotPassword'; 
 import ResetPassword from './pages/auth/ResetPassword';    
 import Onboarding from './pages/auth/Onboarding';
-import Welcome from './pages/auth/Welcome';
 
 // Importação das Telas Principais do Aplicativo (Protegidas)
 import Home from './pages/Home';
@@ -77,10 +76,10 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} /> 
           <Route path="/reset-password" element={<ResetPassword />} />    
           
-          <Route path="/welcome" element={<Welcome />} />
+          <Route path="/welcome" element={<Navigate to="/onboarding" replace />} />
 
-          {/* 2. ONBOARDING (exige login) */}
-          <Route element={<ProtectedRoute mode="auth" />}>
+          {/* 2. ONBOARDING (visitante vê boas-vindas; recém-cadastrado vê o resultado do beta) */}
+          <Route element={<ProtectedRoute mode="public" />}>
             <Route path="/onboarding" element={<Onboarding />} />
           </Route>
 
