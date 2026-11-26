@@ -7,6 +7,7 @@ import {
   CreditCard, Wallet, ExternalLink, CheckCircle,
   Link2, Hotel, Utensils, ShoppingBag, ShoppingCart
 } from 'lucide-react';
+import GoogleMiniMap, { extrairEmbedOficial } from '../GoogleMiniMap';
 import { toast } from 'sonner';
 
 // Detecta o motor de reservas pela URL
@@ -42,7 +43,8 @@ export default function AdminPlaces() {
     name: '', category: '', description: '', address: '',
     latitude: '', longitude: '', has_delivery: false, image_url: '',
     promo_limit: 3, push_limit: 1,
-    reservation_url: '', menu_url: '', shop_url: '', service_url: ''
+    reservation_url: '', menu_url: '', shop_url: '', service_url: '',
+    google_embed_url: ''
   });
 
   const [photos, setPhotos] = useState([]);
@@ -139,7 +141,8 @@ export default function AdminPlaces() {
       reservation_url: merchant.reservation_url || '',
       menu_url: merchant.menu_url || '',
       shop_url: merchant.shop_url || '',
-      service_url: merchant.service_url || ''
+      service_url: merchant.service_url || '',
+      google_embed_url: merchant.google_embed_url || ''
     });
     loadMerchantMedia(merchant.id);
   };
@@ -153,7 +156,8 @@ export default function AdminPlaces() {
       name: '', category: '', description: '', address: '',
       latitude: '', longitude: '', has_delivery: false, image_url: '',
       promo_limit: 3, push_limit: 1,
-      reservation_url: '', menu_url: '', shop_url: '', service_url: ''
+      reservation_url: '', menu_url: '', shop_url: '', service_url: '',
+      google_embed_url: ''
     });
   };
 
@@ -168,7 +172,15 @@ export default function AdminPlaces() {
       menu_url: formData.menu_url?.trim() || null,
       shop_url: formData.shop_url?.trim() || null,
       service_url: formData.service_url?.trim() || null,
+      // Aceita o <iframe> inteiro ou só o src; salva apenas o src oficial
+      google_embed_url: extrairEmbedOficial(formData.google_embed_url),
     };
+
+    // Evita quebrar o salvamento se a migration de google_embed_url ainda não rodou:
+    // só envia a coluna quando há valor (ou quando é preciso limpar um valor existente).
+    if (!payload.google_embed_url && !editingMerchant?.google_embed_url) {
+      delete payload.google_embed_url;
+    }
 
     if (!isAdmin) {
       delete payload.promo_limit;
@@ -498,6 +510,34 @@ export default function AdminPlaces() {
                   );
                 })}
               </div>
+            </div>
+
+            {/* MINIATURA DO GOOGLE MAPS (link de "Incorporar um mapa") */}
+            <div className="pt-4 mt-4 border-t border-blue-900/50">
+              <h3 className="text-xs font-black text-cyan-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Link2 className="w-4 h-4" /> Mapa do Google (estrelas)
+              </h3>
+              <p className="text-[10px] text-blue-400 mb-3 leading-relaxed">
+                No Google Maps, abra o local certo e vá em Compartilhar → Incorporar um mapa → Copiar HTML. Cole aqui o
+                código inteiro. A miniatura com a nota do Google aparece na sheet do mapa.
+              </p>
+              <textarea
+                rows={3}
+                value={formData.google_embed_url || ''}
+                onChange={(e) => setFormData({ ...formData, google_embed_url: e.target.value })}
+                placeholder='<iframe src="https://www.google.com/maps/embed?pb=..."></iframe>'
+                className="w-full bg-[#0A1428] border border-blue-900/50 rounded-lg px-3 py-2 text-[11px] text-white font-mono focus:outline-none focus:border-cyan-400/50 resize-none"
+              />
+              {formData.google_embed_url && !extrairEmbedOficial(formData.google_embed_url) && (
+                <p className="text-[9px] text-amber-400 mt-1.5">
+                  ⚠️ Não reconheci um link de "Incorporar um mapa" do Google. Ele não será salvo.
+                </p>
+              )}
+              {extrairEmbedOficial(formData.google_embed_url) && (
+                <div className="mt-3">
+                  <GoogleMiniMap place={{ id: editingMerchant?.id || 'novo', name: formData.name, google_embed_url: formData.google_embed_url }} />
+                </div>
+              )}
             </div>
 
             {isAdmin && (
