@@ -32,16 +32,6 @@ export function urlEmbedGoogle(place, { zoom = 17 } = {}) {
   return `https://maps.google.com/maps?q=${encodeURIComponent(q)}${ll}&z=${zoom}&hl=pt-BR&output=embed`;
 }
 
-// Página do local no Google Maps (fotos, horários, avaliações).
-// Com o link de "Incorporar", usa o ID do local (ftid) que vem dentro dele;
-// sem ele, faz uma busca por nome + Itacaré.
-export function urlPaginaGoogle(place) {
-  const oficial = extrairEmbedOficial(place.google_embed_url);
-  const ftid = oficial ? (decodeURIComponent(oficial).match(/!1s(0x[0-9a-f]+:0x[0-9a-f]+)/i) || [])[1] : null;
-  if (ftid) return `https://www.google.com/maps?ftid=${ftid}&hl=pt-BR`;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, Itacaré - BA`)}`;
-}
-
 export default function GoogleMiniMap({ place, height = 280 }) {
   const containerRef = useRef(null);
   const [escala, setEscala] = useState(ESCALA_MIN);
@@ -58,12 +48,9 @@ export default function GoogleMiniMap({ place, height = 280 }) {
   }, []);
 
   return (
-    <button
-      type="button"
+    <div
       ref={containerRef}
-      onClick={() => window.open(urlPaginaGoogle(place), '_blank', 'noopener')}
-      aria-label={`Ver ${place.name} no Google Maps`}
-      className="relative block w-full rounded-2xl overflow-hidden border border-blue-900/50 bg-blue-950 active:scale-[0.99] transition-transform"
+      className="relative w-full rounded-2xl overflow-hidden border border-blue-900/50 bg-blue-950"
       style={{ height }}
     >
       <iframe
@@ -80,6 +67,6 @@ export default function GoogleMiniMap({ place, height = 280 }) {
           transformOrigin: '0 0',
         }}
       />
-    </button>
+    </div>
   );
 }
