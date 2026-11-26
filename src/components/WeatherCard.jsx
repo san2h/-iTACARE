@@ -105,10 +105,10 @@ export default function WeatherCard() {
           <div className="flex items-center justify-between mb-2 bg-white/85 backdrop-blur-md rounded-lg p-1.5 shadow-sm border border-white/50">
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <p className="text-[10px] font-black uppercase text-slate-800 tracking-wider">Surf - Itacare</p>
+              <p className="text-[10px] font-black uppercase text-slate-900 tracking-wider">Surf - Itacare</p>
               {loading && <Loader2 className="w-3 h-3 animate-spin text-sky-500 ml-1" />}
             </div>
-            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+            <div className="flex items-center gap-2 text-[10px] font-bold text-slate-700">
               <div className="flex items-center gap-1 border-r border-slate-300 pr-2">
                 <MoonPhaseIcon phase={surfData.moonPhaseName} />
                 <span className="uppercase tracking-wider">{surfData.moonPhaseName}</span>
@@ -123,26 +123,26 @@ export default function WeatherCard() {
             <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-1.5 flex flex-col items-center justify-center text-center text-white shadow-sm border border-white/10">
               <SwellIcon className="w-4 h-4 text-sky-400 mb-0.5" />
               <span className={'text-xs font-black ' + waveColor}>{surfData.wave_height}</span>
-              <p className="text-[8px] font-bold text-gray-300 flex items-center gap-0.5 mt-0.5">
+              <p className="text-[11px] font-bold text-white/85 flex items-center gap-0.5 mt-0.5">
                 {surfData.swell_dir}
-                <Navigation className="w-2 h-2 fill-sky-400 text-sky-400" style={{ transform: 'rotate(' + ((surfData.swell_deg - 45 + 180) % 360) + 'deg)' }} />
+                <Navigation className="w-2.5 h-2.5 fill-sky-400 text-sky-400" style={{ transform: 'rotate(' + ((surfData.swell_deg - 45 + 180) % 360) + 'deg)' }} />
               </p>
             </div>
             <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-1.5 flex flex-col items-center justify-center text-center text-white shadow-sm border border-white/10">
               <Timer className="w-3.5 h-3.5 text-indigo-400 mb-1" />
               <p className="text-xs font-black">{surfData.period}</p>
-              <p className="text-[8px] font-bold text-gray-300 mt-0.5">PERIODO</p>
+              <p className="text-[11px] font-bold text-white/85 mt-0.5">PERÍODO</p>
             </div>
             <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-1.5 flex flex-col items-center justify-center text-center text-white shadow-sm border border-white/10">
               <Zap className="w-3.5 h-3.5 text-amber-400 mb-1" />
               <p className="text-xs font-black">{surfData.energy}</p>
-              <p className="text-[8px] font-bold text-gray-300 mt-0.5">ENERGIA</p>
+              <p className="text-[11px] font-bold text-white/85 mt-0.5">ENERGIA</p>
             </div>
             <div className="bg-slate-900/80 backdrop-blur-md rounded-xl p-1.5 flex flex-col items-center justify-center text-center text-white shadow-sm border border-white/10">
               <Wind className="w-3.5 h-3.5 text-emerald-400 mb-1" />
               <p className="text-xs font-black">{surfData.wind_speed}</p>
-              <p className="text-[8px] font-bold text-emerald-400 flex items-center gap-0.5 mt-0.5">
-                <Navigation className="w-2 h-2 fill-emerald-400" style={{ transform: 'rotate(' + ((surfData.wind_deg - 45 + 180) % 360) + 'deg)' }} />
+              <p className="text-[11px] font-bold text-emerald-300 flex items-center gap-0.5 mt-0.5">
+                <Navigation className="w-2.5 h-2.5 fill-emerald-400" style={{ transform: 'rotate(' + ((surfData.wind_deg - 45 + 180) % 360) + 'deg)' }} />
                 {surfData.wind_dir}
               </p>
             </div>
