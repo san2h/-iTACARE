@@ -421,16 +421,19 @@ export default function MapExplore() {
     setShowLayerMenu(false);
   };
 
-  // Miniatura do Google (Maps Embed API: gratuita e ilimitada).
-  // Usa place_id quando existir; senão, busca por nome + Itacaré.
-  const GOOGLE_EMBED_KEY = import.meta.env.VITE_GOOGLE_EMBED_KEY;
-  const urlEmbedGoogle = (place, { zoom = 17, maptype = 'roadmap' } = {}) => {
-    const q = place.google_place_id
-      ? `place_id:${place.google_place_id}`
-      : `${place.name}, Itacaré - BA`;
-    return `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_EMBED_KEY}`
-      + `&q=${encodeURIComponent(q)}`
-      + `&zoom=${zoom}&maptype=${maptype}&language=pt-BR`;
+  // Miniatura do Google SEM chave de API.
+  // 1) Se o admin colou o link oficial de "Compartilhar > Incorporar um mapa"
+  //    (https://www.google.com/maps/embed?pb=...), usa ele: é o mais preciso.
+  // 2) Senão, usa o embed clássico por busca (output=embed). Não é documentado
+  //    oficialmente pelo Google e pode mudar sem aviso.
+  const urlEmbedGoogle = (place, { zoom = 17 } = {}) => {
+    const oficial = place.google_embed_url;
+    if (typeof oficial === 'string' && oficial.startsWith('https://www.google.com/maps/embed?')) {
+      return oficial;
+    }
+    const q = `${place.name}, Itacaré - BA`;
+    const ll = place.latitude && place.longitude ? `&ll=${place.latitude},${place.longitude}` : '';
+    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}${ll}&z=${zoom}&hl=pt-BR&output=embed`;
   };
 
   const handleTraceRoute = (place) => {
@@ -906,8 +909,8 @@ export default function MapExplore() {
               </div>
             </div>
 
-            {/* Miniatura estática do Google Maps (só não parceiros). Mínimo exigido pelo Google: 200x200px */}
-            {!selectedPlace.is_partner && GOOGLE_EMBED_KEY && (
+            {/* Miniatura estática do Google Maps (só não parceiros). 200px de altura para o cartão do Google caber */}
+            {!selectedPlace.is_partner && (
               <div className="w-full h-[200px] rounded-2xl overflow-hidden border border-blue-900/50 bg-blue-950">
                 <iframe
                   key={selectedPlace.id}
