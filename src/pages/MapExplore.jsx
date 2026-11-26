@@ -421,6 +421,18 @@ export default function MapExplore() {
     setShowLayerMenu(false);
   };
 
+  // Miniatura do Google (Maps Embed API: gratuita e ilimitada).
+  // Usa place_id quando existir; senão, busca por nome + Itacaré.
+  const GOOGLE_EMBED_KEY = import.meta.env.VITE_GOOGLE_EMBED_KEY;
+  const urlEmbedGoogle = (place, { zoom = 17, maptype = 'roadmap' } = {}) => {
+    const q = place.google_place_id
+      ? `place_id:${place.google_place_id}`
+      : `${place.name}, Itacaré - BA`;
+    return `https://www.google.com/maps/embed/v1/place?key=${GOOGLE_EMBED_KEY}`
+      + `&q=${encodeURIComponent(q)}`
+      + `&zoom=${zoom}&maptype=${maptype}&language=pt-BR`;
+  };
+
   const handleTraceRoute = (place) => {
     if (!place.latitude || !place.longitude) return;
     const url = `https://www.google.com/maps/dir/?api=1&origin=${userCoords.lat},${userCoords.lng}&destination=${place.latitude},${place.longitude}&travelmode=driving`;
@@ -893,6 +905,20 @@ export default function MapExplore() {
                 <p className="text-[10px] text-blue-300 font-medium truncate mt-0.5">{selectedPlace.address || 'Itacaré, Bahia'}</p>
               </div>
             </div>
+
+            {/* Miniatura estática do Google Maps (só não parceiros). Mínimo exigido pelo Google: 200x200px */}
+            {!selectedPlace.is_partner && GOOGLE_EMBED_KEY && (
+              <div className="w-full h-[200px] rounded-2xl overflow-hidden border border-blue-900/50 bg-blue-950">
+                <iframe
+                  key={selectedPlace.id}
+                  title={`Google Maps - ${selectedPlace.name}`}
+                  src={urlEmbedGoogle(selectedPlace)}
+                  className="w-full h-full border-0 pointer-events-none"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1">
               <button
