@@ -90,7 +90,7 @@ export default function BottomNav() {
                 >
                   <Icon className="w-14 h-14 text-[#050B14]" />
                 </motion.div>
-                <span className="text-[11px] font-black text-center block mt-1 text-cyan-400 uppercase tracking-wider">
+                <span className="text-[10px] font-black text-center block mt-1 text-cyan-400 uppercase tracking-wider">
                   {item.label}
                 </span>
               </Link>
@@ -107,12 +107,12 @@ export default function BottomNav() {
               className="flex flex-col items-center py-2 px-3 relative min-w-[64px]"
             >
               <motion.div whileTap={{ scale: 0.85 }} className="relative">
-                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-cyan-200'}`} />
+                <Icon className={`w-5 h-5 transition-colors ${isActive ? 'text-cyan-400' : 'text-blue-400/40 hover:text-cyan-200'}`} />
                 {item.isRestricted && !isPremium && (
                   <Lock className="w-3 h-3 text-amber-500 absolute -top-1 -right-2 bg-[#050B14] rounded-full p-[1px]" />
                 )}
               </motion.div>
-              <span className={`text-[11px] mt-1 font-bold transition-colors uppercase tracking-tight ${isActive ? 'text-cyan-400' : 'text-slate-300'}`}>
+              <span className={`text-[10px] mt-1 font-bold transition-colors uppercase tracking-tight ${isActive ? 'text-cyan-400' : 'text-blue-400/40'}`}>
                 {item.label}
               </span>
               {isActive && (
