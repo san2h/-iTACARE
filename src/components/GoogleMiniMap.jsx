@@ -4,6 +4,11 @@ import React, { useEffect, useRef, useState } from 'react';
 // iframe tem ~500px ou mais de largura (480 falhou nos testes; 560 dá margem). A sheet no celular tem ~340px, então
 // renderizamos o iframe nesta largura fixa e reduzimos com transform: scale.
 const LARGURA_VIRTUAL = 560;
+// O cartão também some se o iframe tiver menos de ~300px de altura (em px virtuais).
+const ALTURA_VIRTUAL_MIN = 320;
+// Escala mínima do iframe: quanto maior, maior o cartão do Google. A sobra do mapa
+// à direita é cortada (o cartão fica no canto esquerdo, então não é afetado).
+const ESCALA_MIN = 0.85;
 
 // Aceita tanto o src quanto o <iframe ...> inteiro copiado de
 // Google Maps > Compartilhar > Incorporar um mapa.
@@ -27,16 +32,16 @@ export function urlEmbedGoogle(place, { zoom = 17 } = {}) {
   return `https://maps.google.com/maps?q=${encodeURIComponent(q)}${ll}&z=${zoom}&hl=pt-BR&output=embed`;
 }
 
-export default function GoogleMiniMap({ place, height = 220 }) {
+export default function GoogleMiniMap({ place, height = 280 }) {
   const containerRef = useRef(null);
-  const [escala, setEscala] = useState(0.7);
+  const [escala, setEscala] = useState(ESCALA_MIN);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el || typeof ResizeObserver === 'undefined') return;
     const obs = new ResizeObserver(([entry]) => {
       const largura = entry.contentRect.width;
-      if (largura > 0) setEscala(Math.min(1, largura / LARGURA_VIRTUAL));
+      if (largura > 0) setEscala(Math.min(1, Math.max(ESCALA_MIN, largura / LARGURA_VIRTUAL)));
     });
     obs.observe(el);
     return () => obs.disconnect();
@@ -57,7 +62,7 @@ export default function GoogleMiniMap({ place, height = 220 }) {
         className="absolute top-0 left-0 border-0 pointer-events-none"
         style={{
           width: LARGURA_VIRTUAL,
-          height: height / escala,
+          height: Math.max(height / escala, ALTURA_VIRTUAL_MIN),
           transform: `scale(${escala})`,
           transformOrigin: '0 0',
         }}
