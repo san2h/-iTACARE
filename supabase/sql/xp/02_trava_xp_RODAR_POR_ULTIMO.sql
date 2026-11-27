@@ -1,7 +1,7 @@
 -- =====================================================================
 -- PASSO 2 — TRAVA (só rodar DEPOIS que TODO o frontend usar award_xp)
 -- A partir daqui o usuário não consegue mais mexer no próprio XP
--- nem inserir histórico falso. Chamadas antigas param de dar XP
+-- nem nas iTAcoins (use a migration 20261126130000 antes), nem inserir histórico falso. Chamadas antigas param de dar XP
 -- (sem erro na tela: o valor antigo é mantido em silêncio).
 -- =====================================================================
 begin;
@@ -17,8 +17,9 @@ begin
      and coalesce(current_setting('app.xp_write', true), '') <> 'on' then
     if tg_op = 'INSERT' then
       new.xp := 0;
-    elsif new.xp is distinct from old.xp then
+    elsif new.xp is distinct from old.xp or new.itacoins is distinct from old.itacoins then
       new.xp := old.xp;
+      new.itacoins := old.itacoins;
     end if;
   end if;
   return new;
