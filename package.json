@@ -9,8 +9,10 @@
     "build:web": "vite build",
     "build:android": "vite build --mode capacitor && npx cap sync android",
     "preview": "vite preview",
+    "postinstall": "patch-package",
     "upload:apk": "node scripts/upload-apk.js",
-    "build:android:full": "vite build --mode capacitor && npx cap sync android && cd android && ./gradlew assembleDebug && cd .. && npm run upload:apk"
+    "build:apk": "vite build --mode capacitor && npx cap sync android && node scripts/gradle-assemble.js",
+    "build:android:full": "vite build --mode capacitor && npx cap sync android && node scripts/gradle-assemble.js && npm run upload:apk"
   },
   "dependencies": {
     "@capacitor-community/bluetooth-le": "^8.2.0",

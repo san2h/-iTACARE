@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseConfig';
+import { awardXP } from '../lib/xp';
 import { useAuth } from '../lib/AuthContext';
 import { usePlan } from '../lib/usePlan';
 import { toast } from 'sonner';
@@ -78,6 +79,7 @@ export default function MapExplore() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [scanLoading, setScanLoading] = useState(false);
+  const [lastCheckinId, setLastCheckinId] = useState(null);
 
   const mapInstanceRef = useRef(null);
   const currentTileLayerRef = useRef(null);
@@ -455,19 +457,18 @@ export default function MapExplore() {
         return;
       }
 
-      await supabase.from('merchant_checkins').insert([
-        { user_id: user.id, merchant_id: selectedPlace.id }
-      ]);
+      const { data: checkin, error: checkinError } = await supabase
+        .from('merchant_checkins')
+        .insert([{ user_id: user.id, merchant_id: selectedPlace.id }])
+        .select('id')
+        .single();
+      if (checkinError) throw checkinError;
 
-      const { data: profile } = await supabase.from('profiles').select('xp').eq('id', user.id).single();
-      const newXp = (profile?.xp || 0) + 50;
-      await supabase.from('profiles').update({ xp: newXp }).eq('id', user.id);
+      setLastCheckinId(checkin.id);
 
-      await supabase.from('xp_transactions').insert([{
-        user_id: user.id,
-        action_type: 'CHECK_IN_FISICO',
-        xp_amount: 50
-      }]);
+      // XP validado no servidor: o check-in precisa existir, ser seu e ser o primeiro do dia neste local
+      const res = await awardXP('CHECK_IN_FISICO', checkin.id);
+      if (res.awarded) toast.success(`Check-in feito! +${res.amount} XP`);
 
       setScanSuccess(true);
     } catch (err) {
@@ -484,20 +485,17 @@ export default function MapExplore() {
       navigate(user ? '/upgrade' : '/register');
       return;
     }
-    navigator.clipboard.writeText("#+iTACARÉ");
-
     try {
-      const { data: profile } = await supabase.from('profiles').select('xp').eq('id', user.id).single();
-      const newXp = (profile?.xp || 0) + 50;
-      await supabase.from('profiles').update({ xp: newXp }).eq('id', user.id);
+      await navigator.clipboard?.writeText("#+iTACARÉ");
+    } catch (err) {
+      // Alguns WebViews Android bloqueiam a área de transferência: segue sem copiar
+      console.warn('[share] clipboard indisponível:', err);
+    }
 
-      await supabase.from('xp_transactions').insert([{
-        user_id: user.id,
-        action_type: 'SHARE_IG_PARTNER',
-        xp_amount: 50
-      }]);
-    } catch(err) {
-      console.error("Erro ao dar XP do insta:", err);
+    // 1x por check-in (referência = id do check-in de hoje)
+    if (lastCheckinId) {
+      const res = await awardXP('SHARE_IG_PARTNER', lastCheckinId);
+      if (res.awarded) toast.success(`+${res.amount} XP pelo compartilhamento!`);
     }
 
     window.open("instagram://camera", "_blank");
@@ -506,6 +504,7 @@ export default function MapExplore() {
       setIsScanning(false);
       setScanSuccess(false);
       setScanLoading(false);
+      setLastCheckinId(null);
     }, 2000);
   };
 
@@ -957,7 +956,7 @@ export default function MapExplore() {
                   </div>
                   <h3 className="text-lg font-black text-white">Check-in Válido!</h3>
                   <p className="text-xs font-medium text-blue-200 leading-relaxed">
-                    A tag <strong className="text-cyan-400">#+iTACARÉ</strong> foi copiada. Poste uma foto agora no Instagram para ir para a nossa galeria e ganhar <strong>+50 XP!</strong>
+                    A tag <strong className="text-cyan-400">#+iTACARÉ</strong> foi copiada. Poste uma foto agora no Instagram para ir para a nossa galeria e ganhar <strong>+20 XP!</strong>
                   </p>
                 </motion.div>
               ) : (
