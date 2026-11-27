@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseConfig';
+import { awardXP as awardXPServer } from '../lib/xp';
 import { useAuth } from '../lib/AuthContext';
 import { Scanner } from '@yudiel/react-qr-scanner'; 
 import { 
@@ -173,19 +174,24 @@ export default function EventView() {
   };
 
   // � RECOMPENSAS
-  const awardRewards = async (xpAmount, itacoinsAmount, actionType, referenceId = null) => {
+  const awardRewards = async (_xpAmount, itacoinsAmount, actionType, referenceId = null) => {
     if (!user?.id) return;
     try {
-      setXpPopup(xpAmount);
+      const res = await awardXPServer(actionType, referenceId);
+      if (!res.awarded) return;
+      setXpPopup(res.amount);
       setTimeout(() => setXpPopup(null), 2500);
 
-      const { data: profile } = await supabase.from('profiles').select('xp, itacoins').eq('id', user.id).single();
-      const newXp = (profile?.xp || 0) + (parseInt(xpAmount) || 0);
-      const newItacoins = (profile?.itacoins || 0) + (parseInt(itacoinsAmount) || 0);
-
-      await supabase.from('profiles').update({ xp: newXp, itacoins: newItacoins }).eq('id', user.id);
-      await supabase.from('xp_transactions').insert([{ user_id: user.id, action_type: actionType, xp_amount: xpAmount, reference_id: referenceId }]);
-    } catch (err) {}
+      // iTAcoins ainda pelo app (vai para a função de carteira em outro PR).
+      // Só credita quando o XP foi aceito, para não repetir no mesmo evento.
+      const coins = parseInt(itacoinsAmount) || 0;
+      if (coins > 0) {
+        const { data: profile } = await supabase.from('profiles').select('itacoins').eq('id', user.id).single();
+        await supabase.from('profiles').update({ itacoins: (profile?.itacoins || 0) + coins }).eq('id', user.id);
+      }
+    } catch (err) {
+      console.warn('[xp] awardRewards:', err);
+    }
   };
 
   // COMPRA E CHECK-IN (CLIENTE)
