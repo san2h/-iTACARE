@@ -35,6 +35,8 @@ export default defineConfig(({ mode }) => {
       // PWA só ativa fora do build Capacitor (web normal)
       !isCapacitor && VitePWA({ 
         registerType: 'autoUpdate',
+        // Páginas estáticas exigidas pela App Store: o service worker não pode devolver o app no lugar delas.
+        workbox: { navigateFallbackDenylist: [/^\/(privacy|terms|support)(\/|$)/] },
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'sirene-emergencia.mp3'],
         manifest: {
           name: '+iTACARÉ Comunidade Premium',
